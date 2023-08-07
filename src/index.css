@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  min-width: 100vw;
+  min-height: 100vh;
+  background: linear-gradient(to bottom, #1b1a44, #225c66, #225c66, #193d0b);
+  background: url(./assets/landscape-1994685_1920.jpg);
+  background-attachment: fixed;
+  background-size: cover;
+  min-width: 100vw;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+}
+
+*::-webkit-scrollbar {
+  width: 7px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #b1b1b1;
+  border-radius: 15px;
+}
+
+.chat-paper {
+  background: url(./assets/ornaments-4157521_1920.jpg);
+  background-size: cover;
+}
+
+.chat-paper::-webkit-scrollbar {
+  display: none;
+}

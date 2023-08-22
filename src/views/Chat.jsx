@@ -17,6 +17,14 @@ import { FaPlus, FaPlusCircle } from "react-icons/fa";
 import { useSockets } from "../contexts/SocketContext";
 import { v4 as uuidv4 } from "uuid";
 
+const convertTime = (time) => {
+  const hrs = time.getHours();
+  const mins = time.getMinutes();
+  const date = time.toLocaleDateString();
+
+  return `${hrs}:${mins}`;
+};
+
 const Chat = () => {
   const nav = useNavigate();
   const { socket } = useSockets();
@@ -27,7 +35,11 @@ const Chat = () => {
   const [newMessage, setNewMessage] = useState(null);
   const [arr, setArr] = useState([]);
   const [message, setMessage] = useState("");
-  const [picture, setPicture] = useState(null);
+  const [picture, setPicture] = useState({
+    file: [],
+    preview: [],
+  });
+  const [validSession, setValidSession] = useState(null);
   const scrollRef = useRef();
 
   useEffect(() => {
@@ -45,7 +57,18 @@ const Chat = () => {
   }, [loginData, selectedUser]);
 
   useEffect(() => {
-    setLoginData(JSON.parse(localStorage.getItem("holaChatUser")));
+    const localStorageData = JSON.parse(localStorage.getItem("holaChatUser"));
+
+    axios
+      .get(`/user/verify/${localStorageData?.token}`)
+      .then((res) => {
+        setValidSession(res.data);
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+
+    setLoginData(localStorageData);
     if (!loginData) {
       nav("/login", { replace: true });
     }
@@ -57,50 +80,60 @@ const Chat = () => {
     nav("/login", { replace: true });
   };
 
-  const handleSendMessage = async () => {
-    if (message !== "" && selectedUser) {
-      socket.emit("send_message", {
-        from: loginData?.user?._id,
-        to: selectedUser?._id,
-        toName: selectedUser?.firstName,
-        message: message,
-        // picture,
-      });
-      const formData = new FormData();
+  const handleUploadImages = (e) => {
+    setPicture({
+      file: [...e.target.files],
+      preview: [...e.target.files]?.map((prev) => URL.createObjectURL(prev)),
+    });
+  };
 
+  const handleSendMessage = async () => {
+    if (selectedUser && (message !== "" || picture)) {
+      const formData = new FormData();
       formData.append("message", message);
       formData.append("to", selectedUser?._id);
-      formData.append("picture", picture);
-
+      picture?.file?.forEach((image) => {
+        formData.append("picture", image);
+      });
       await axios
-        .post(`http://localhost:4004/api/v2/message`, formData)
+        .post(`/message`, formData)
         .then((res) => {
+          socket.emit("send_message", {
+            from: loginData?.user?._id,
+            to: selectedUser?._id,
+            toName: selectedUser?.firstName,
+            message: message,
+            picture: res.data.data.picture,
+          });
+
+          let msgs = [...userMessages];
+          msgs.push({
+            sender: loginData?.user?._id,
+            message: {
+              text: message,
+            },
+            picture: res.data.data.picture,
+          });
+          setUserMessages(msgs);
+        })
+        .then(() => {
           setMessage("");
+          setPicture(null);
         })
         .catch((error) => {
           console.log(error);
         });
-
-      let msgs = [...userMessages];
-      console.log(userMessages, "&*&**&*&*&*&*");
-      msgs.push({
-        sender: loginData?.user?._id,
-        message: {
-          text: message,
-        },
-      });
-      setUserMessages(msgs);
     }
   };
 
   useEffect(() => {
     socket.on("receive_message", (data) => {
-      console.log(data, "++++");
       setNewMessage({
         sender: data.from,
         message: {
           text: data.message,
         },
+        picture: data.picture,
       });
     });
   }, [socket]);
@@ -122,7 +155,7 @@ const Chat = () => {
   return (
     <Box className="min-h-[100vh] flex items-center justify-center">
       <Box className="w-[90%] max-w-[1200px] h-[90vh] min-h-[440px] bg-[#0000003d] rounded-[10px] p-4 flex items-center gap-2">
-        <Box className="w-1/3 h-full bg-[#0f0733] rounded-xl overflow-auto flex flex-col items-center gap-1 pb-10 pt-1 px-2">
+        <Box className="w-1/4 h-full bg-[#0f0733] rounded-xl overflow-auto flex flex-col items-center gap-1 pb-10 pt-1 px-2">
           <Box className="h-fit w-full py-2">
             <Box
               className="p-2 px-0 flex items-center w-full gap-4 rounded-lg truncate"
@@ -171,7 +204,7 @@ const Chat = () => {
             })}
           </Box>
         </Box>
-        <Box className="w-2/3 flex flex-col h-full bg-[#000000] p-1 rounded-lg">
+        <Box className="w-3/4 flex flex-col h-full bg-[#000000] p-1 rounded-lg">
           <Box className="h-[10%] bg-[#000000]">
             {selectedUser && (
               <Box className="h-fit w-full pl-5">
@@ -188,7 +221,31 @@ const Chat = () => {
               </Box>
             )}
           </Box>
-          <Box className="h-[90%] bg-orange-300 chat-paper rounded-b-lg overflow-auto flex flex-col gap-1 py-5 pb-0">
+          <Box className="h-[90%] bg-orange-300 chat-paper rounded-b-lg overflow-auto flex flex-col gap-1 py-5 pb-0 relative">
+            {picture?.preview[0] && (
+              <Box className="fixed left-3 bottom-6 flex flex-col gap-2 bg-white p-4 pt-10 max-h-[70%] overflow-auto">
+                <IconButton className="absolute top-1 right-1">
+                  <IoPause
+                    onClick={() => {
+                      setPicture({
+                        file: [],
+                        preview: [],
+                      });
+                    }}
+                  />
+                </IconButton>
+                {picture?.preview?.map((prev, idx) => {
+                  return (
+                    <img
+                      key={idx}
+                      src={prev}
+                      alt=""
+                      className="w-[100px] aspect-video rounded object-cover"
+                    />
+                  );
+                })}
+              </Box>
+            )}
             {selectedUser ? (
               <Box className="relative">
                 {userMessages?.map((message) => {
@@ -203,13 +260,6 @@ const Chat = () => {
                       } w-full px-2`}
                     >
                       <Box className="w-fit max-w-[50%]">
-                        {/* {message.picture && (
-                          <img
-                            src={message.picture}
-                            alt=""
-                            className="w-[320px] h-auto rounded-lg my-1"
-                          />
-                        )} */}
                         <Box
                           className={`flex items-start gap-1 
                         ${
@@ -226,16 +276,35 @@ const Chat = () => {
                                 : selectedUser?.picture
                             }
                             alt=""
-                            className="w-[40px] aspect-square rounded-[50%]"
+                            className="w-[40px] aspect-square rounded-[50%] object-cover"
                           />
-                          <Box
-                            className={`${
-                              loginData?.user?._id === message.sender
-                                ? "bg-zinc-100 text-slate-900"
-                                : "bg-slate-900 text-white"
-                            }  rounded-[10px] p-2 my-[2px] w-fit h-full `}
-                          >
-                            {message.message.text}
+                          <Box>
+                            <Box
+                              className={`${
+                                loginData?.user?._id === message.sender
+                                  ? "bg-zinc-100 text-slate-900"
+                                  : "bg-slate-900 text-white"
+                              }  rounded-[10px] p-2 my-[2px] w-fit h-full `}
+                            >
+                              {message.picture[0] ? (
+                                <>
+                                  {" "}
+                                  {message.picture.map((pic) => {
+                                    return (
+                                      <img
+                                        src={pic}
+                                        alt=""
+                                        className="w-[full] h-auto rounded-lg my-1"
+                                      />
+                                    );
+                                  })}
+                                </>
+                              ) : null}
+                              {message.message.text}
+                            </Box>
+                            <Box className="text-white">
+                              {convertTime(new Date(message.createdAt))}
+                            </Box>
                           </Box>
                         </Box>
                       </Box>
@@ -260,13 +329,12 @@ const Chat = () => {
             )}
           </Box>
           <Box className="w-full h-fit bottom-0 rounded-1 border-[6px] border-[#000000]">
-            <TextField
+            <input
+              multiple
               type="file"
               id="picture"
               name="picture"
-              onChange={(e) => {
-                setPicture(e.target.files[0]);
-              }}
+              onChange={handleUploadImages}
               className="hidden"
             />
             <OutlinedInput

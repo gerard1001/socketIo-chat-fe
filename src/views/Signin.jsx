@@ -26,9 +26,9 @@ const Signin = () => {
     await axios
       .post(`/user/login`, { email, password })
       .then((res) => {
-        toast.success(res.data.message, toastOptions);
-        setLoginData(res.data.data);
-        localStorage.setItem("holaChatUser", JSON.stringify(res.data.data));
+        toast.success(res?.data?.message, toastOptions);
+        setLoginData(res?.data?.data);
+        localStorage.setItem("holaChatUser", JSON.stringify(res?.data?.data));
       })
       .then(() => {
         setEmail("");
